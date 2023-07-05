@@ -122,19 +122,31 @@ Phytoplankton_for_resampling_filtered_wide <- pivot_wider(data=Phytoplankton_for
 
 Phytoplankton_for_resampling_filtered_wide[is.na(Phytoplankton_for_resampling_filtered_wide)] <- 0
 
-
-
 # resampling based on Stefan Kruse https://github.com/StefanKruse/R_Rarefaction
 
 # after resampling: 
+t_ordidf <- as.data.frame(t(ordidf1321_aggregated), header = F)
+# apply header
+names(t_ordidf) <- t_ordidf[1,]
+# cut out double information
+t_ordidf <- t_ordidf[-1,] 
+view(t_ordidf)
 
-t_ordidf <- t(ordidf1321_aggregated)
+# Have age as a column not as rownames
+t_ordidf$age <- row.names(t_ordidf)
+view(t_ordidf)
+t_ordidf <- t_ordidf %>%
+  dplyr::select(age, everything())
 view(t_ordidf)
 
 PS97_phyto_resampled <- t_ordidf %>%
   pivot_longer(!age, names_to = "name", values_to = "sumcount")  
 
+view(PS97_phyto_resampled)
+
+write.csv2(PS97_phyto_resampled, paste0("~/PS97_phyto_resampled.csv"), row.names=FALSE)	
 # adding group again for plotting in Excel 
+PS97_phyto_resampled_grouped <- read.delim2("~/PS97_phyto_resampled_grouped.txt")
 
 PS97_phyto_resampled_grouped_1 <- PS97_phyto_resampled_grouped %>%
   group_by(group,age) %>%
@@ -146,13 +158,14 @@ PS97_phyto_resampled_grouped_2 <- PS97_phyto_resampled_grouped_1 %>%
 
 PS97_phyto_resampled_grouped_3=PS97_phyto_resampled_grouped_2 %>% filter(!is.na(group))
 
-ggplot(data=PS97_phyto_resampled_grouped_3, aes(x = rel_abund, y = age)) +
-  geom_areah()+
-  scale_y_reverse(name="age", breaks = rev(seq(0, 14000, by = 1000)))+
-  facet_abundanceh(vars(group), scales = "free", space="fixed") +
-  scale_x_continuous(limits = function(x){c(0, max(0.1, x))})+
-  theme_light()+
-  theme(legend.position = "bottom")
+P <- ggplot(PS97_phyto_resampled_grouped_3, aes(x=age, y=rel_abund,fill=group)) +
+  geom_area(position="identity")+
+  facet_abundance(vars(group),scales = "free", space="fixed")+
+  scale_x_continuous(breaks = round(seq(min(0), max(14000), by =1000),1))+
+  theme(panel.background = element_blank())+ theme(axis.line.x = element_line(color="black", size = 0.5),
+                                                   axis.line.y = element_line(color="black", size = 0.5), legend.position = "none")
+P+ scale_fill_brewer(palette = "Greens", direction = 1)
+
 
 ###############################################################################
 ####################### Ice Core data of Epica DOME C #########################
@@ -397,12 +410,16 @@ sgdf_Ecosystem_3$new_name = factor(sgdf_Ecosystem_3$family, levels=c("Euphausiid
                                             "Bathydraconidae",
                                             "Nototheniidae","Channichthyidae"))
 
+
+
 # Adding in Excel the family groups
 # Euphausiidae = Krill 
 # Metridinidae, Temoridae, Iphimediidae, Lysianassidae = Copepods 
 #     -> Redoing the names to marine copepods to not plot them individually
 # Balaenopteridae, Phocidae, Delphinidae = marine mammals 
 # Bathydraconidae, Nothoteniidae, Channichthyidae = Fishes
+# Spheniscidae show throughout the time nearly 100 % of Pygoscelis antarcticus 
+#   that is why we use it with the species information
 
 Ecosystem_plot <- ggplot(sgdf_Ecosystem_3, aes(x=age, y=rel_abund,fill=group)) + 
   geom_area(position="identity")+
