@@ -1,1 +1,369 @@
+################################################################################
+######################## TRAY Calculation preparation ##########################
+################################################################################
+library(readxl)
+library(ggplot2)
+library(tidyverse)
+library(pracma)
+library(cowplot)
 
+# Linear regression model of WDC
+# Read data
+co2_data <- read.delim2("Lineare_Regression_co2.txt")
+
+# Filter data to include only ages greater than 14600 (before the ACR plateau)
+pre_acr_data <- subset(co2_data, WDC.age > 14600)
+
+# Fit a linear regression model with WDC.CO2 as the dependent variable and WDC.age as the independent variable
+linear_model <- lm(WDC.CO2 ~ WDC.age, data = pre_acr_data)
+
+# Create a scatter plot of WDC.age (x-axis) versus WDC.CO2 (y-axis) with the title "CO2 without ACR-Plateau", x-axis label "year", y-axis label "CO2 concentration", and blue points
+plot(pre_acr_data$WDC.age, pre_acr_data$WDC.CO2, main = "CO2 without ACR-Plateau",
+     xlab = "year", ylab = "CO2 concentration", col = "blue")
+# Add the regression line to the plot in red
+abline(linear_model, col = "red")
+
+
+# Extract the WDC.age values from the original dataset as the new range of years to predict
+new_years <- co2_data$WDC.age
+
+# Use the linear model to predict CO2 values for the new range of years
+predicted_CO2 <- predict(linear_model, newdata = data.frame(WDC.age = new_years))
+
+predicted_co2 <- as.data.frame(predicted_CO2)  # Convert predicted CO2 values to a data frame
+rownames(predicted_co2) <- new_years  # Use new_years as row names for the predicted_co2 data frame
+
+# Write the predicted_co2 data frame to a csv file
+# write_csv2(predicted_co2, "predicted_co2_neu.csv")
+
+# Create a line plot of WDC.age (x-axis) versus WDC.CO2 (y-axis) from the original dataset with the x-axis label "Years", y-axis label "CO2", and y-axis limits of 180 to 300
+plot(co2_data$WDC.age, co2_data$WDC.CO2, type = "l", xlab = "Years", ylab = "CO2",ylim = c(180, 300))
+abline(linear_model, col = "red")  # Add the regression line to the plot in red
+
+summary(linear_model)  # Print a summary of the linear model (coefficients, R-squared, etc.)
+
+
+################################################################################
+###################### NPP progression calculation #############################
+################################################################################
+
+# First step merge the calculated NPP per year (SSIE) with the new years of the
+# WDC ice core 
+
+# First table is Total_Carbon_Model
+Total_Carbon_Model <- read_excel("")
+New_withPreACR <- read_excel("")
+# Second table is npp_calculation
+npp_calculation <- read_excel("")
+# Third table is Lineare_Regression_co2
+WDC <- read.delim2("")
+
+# Now subset all in a new table 
+
+subset1 <- subset(New_withPreACR, select = c("Environment", "Year", 
+                                             "SSIE", "FCO2", 
+                                             "Final_ppm_Phaeocystis", 
+                                             "Final_ppm_Diatomeen", 
+                                             "Final_ppm_PundD")) 
+
+subset2 <- subset(npp_calculation, select=c("Age", "CO2_pred", "CO2_real"))
+
+
+
+subset3 <- Total_Carbon_Model %>% mutate(Climate_condition=case_when(Year>12800 & Year<14610 ~ "ACR", Year>=14610 ~ "preACR", TRUE ~ "post_ACR"))
+
+subset4 <- subset3 %>% 
+  group_by(Climate_condition) %>%
+  arrange(Year) %>%
+  mutate(year_diff = c(diff(Year), 0))
+
+# Merge 
+
+subset1$ID_prefix <- substr(as.character(subset1$Year), 1, 3)
+subset2$ID_prefix <- substr(as.character(subset2$Year), 1, 3)
+
+merged_table <- merge(subset1, subset2, by = "ID_prefix", suffixes = c("_subset1", "_subset2"), all = TRUE)
+
+merged_table <- merged_table[, !names(merged_table) %in% c("ID_prefix")]
+
+print(merged_table)
+
+# Merge with years differences
+
+merged_table_combined <- merge(merged_table, subset4, by=c("Year", "CO2_pred", "CO2_real"))
+
+View(merged_table_combined)
+
+# Calculate per time slice the total ppm
+
+merged_table_combined$Final_ppm_Diatomeen_yrs <- merged_table_combined$Final_ppm_Diatomeen * merged_table_combined$year_diff
+merged_table_combined$Final_ppm_Phaeocystis_yrs <- merged_table_combined$Final_ppm_Phaeocystis * merged_table_combined$year_diff
+merged_table_combined$Final_ppm_Beide_yrs <- merged_table_combined$Final_ppm_PundD * merged_table_combined$year_diff
+
+merged_table_combined %>% arrange(Year)
+
+######### During and Post ACR ##############################################################
+
+# Filter for only ACR 
+merged_table_combined_ACR <- subset3 %>% filter(Climate_condition %in% c("ACR", "post_ACR"))
+
+unique(merged_table_combined$Climate_condition)
+
+# Subset environment
+
+subset_RossSea <- merged_table_combined_ACR %>% filter(Environment == "RossSea")
+subset_APF <- merged_table_combined_ACR %>% filter(Environment == "APF")
+
+# ROSSSEA ACR Cumulative calculation of NPP  
+merged_table_combined %>% arrange(Year)
+
+subset_RossSea1 <- subset_RossSea %>% group_by(FCO2) %>% arrange(desc(Year)) %>% mutate(Diatom=cumsum(Diatomeen_NPP_gCm2), 
+                                                                                       Phaeocystis=cumsum(Phaeocystis_NPP_gCm2), 
+                                                                                       Beide=cumsum(PundD_NPP_gCm2)) %>% ungroup()
+
+subset_RossSea1 %>% arrange(FCO2, Year) %>% filter(Year==12830.2) %>% View()
+
+# APF ACR Cumulative calculation of NPP 
+
+subset_APF1 <- subset_APF %>% group_by(FCO2) %>% arrange(desc(Year)) %>% mutate(Diatom=cumsum(Final_ppm_Diatomeen_yrs), 
+                                                                               Phaeocystis=cumsum(Final_ppm_Phaeocystis_yrs), 
+                                                                               Beide=cumsum(Final_ppm_Beide_yrs)) %>% ungroup()
+
+subset_APF1 %>% arrange(FCO2, Year) %>% filter(Year==12830.2) %>% View()
+
+# Subtract the calculated ppm Value from the Predicted CO2 
+
+#RossSea
+subset_RossSea1$Diatom_minus <- subset_RossSea1$CO2_pred - subset_RossSea1$Diatom
+subset_RossSea1$Phaeocystis_minus <- subset_RossSea1$CO2_pred - subset_RossSea1$Phaeocystis
+subset_RossSea1$Beide_minus <- subset_RossSea1$CO2_pred - subset_RossSea1$Beide
+
+#APF
+subset_APF1$Diatom_minus <- subset_APF1$CO2_pred - subset_APF1$Diatom
+subset_APF1$Phaeocystis_minus <- subset_APF1$CO2_pred - subset_APF1$Phaeocystis
+subset_APF1$Beide_minus <- subset_APF1$CO2_pred - subset_APF1$Beide
+
+# Add the calculated ppm Value to the real CO2 
+
+#RossSea
+subset_RossSea1$Diatom_plus <- subset_RossSea1$CO2_real + subset_RossSea1$Diatom
+subset_RossSea1$Phaeocystis_plus <- subset_RossSea1$CO2_real + subset_RossSea1$Phaeocystis
+subset_RossSea1$Beide_plus <- subset_RossSea1$CO2_real + subset_RossSea1$Beide
+
+#APF
+subset_APF1$Diatom_plus <- subset_APF1$CO2_real + subset_APF1$Diatom
+subset_APF1$Phaeocystis_plus <- subset_APF1$CO2_real + subset_APF1$Phaeocystis
+subset_APF1$Beide_plus <- subset_APF1$CO2_real + subset_APF1$Beide
+
+# Final Calculation and Plotting
+
+subset_RossSea1_05 <- subset_RossSea1 %>%
+  filter(FCO2==0.5)
+
+subset_APF1_05 <- subset_APF1 %>%
+  filter(FCO2==0.5)
+
+
+
+
+
+MINUS05 <- ggplot() +
+  geom_line(data = co2_data, aes(x = WDC.Year, y = WDC.CO2, group = 1), color = "gray",alpha=0.8) +
+  geom_abline(slope = coef(linear_model)[2], intercept = coef(linear_model)[1], color = "darkred", alpha=0.8, size=1) +
+  geom_line(data = subset_RossSea1_05, aes(x = Year, y = SSIE*20, group = 1), color = "lightgrey") +
+  #geom_line(data = EISKERN_CO2daten, aes(x = Gas.Year..yrs.BP., y = CO2..ppm., group = 1), color = "black") +
+  #geom_line(data = Phaeocystis_Ross_Sea_high_outgassing, aes(x = Year, y = median_value, group = 1),span = 0.4, size=1, color = "seagreen4") +
+  #geom_line(data = Phaeocystis_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_25, group = 1),span=0.4, level=0.2, color = "darkseagreen", size=1) +
+  #geom_line(data = Phaeocystis_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_75, group = 1), color = "lightgreen") +
+  #geom_line(data = Diatom_Ross_Sea_high_outgassing, aes(x = Year, y = median_value, group = 1),span = 0.4, size=1, color = "cyan4") +
+  #geom_line(data = Diatom_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_25, group = 1), color = "darkblue") +
+  #geom_line(data = Diatom_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_75, group = 1), color = "lightblue") +
+  geom_line(data = subset_RossSea1_05, aes(x = Age, y =Phaeocystis_minus , group = 1), span = 0.4,level=0.2, color = "darkorange", size=0.8) +
+  geom_line(data = subset_RossSea1_05, aes(x = Age, y = Diatom_minus, group = 1), span = 0.4,level=0.2, color = "darkslategray4", size=0.8) +
+  geom_line(data = subset_APF1_05, aes(x = Age, y =Beide_minus, group = 1), span = 0.4,level=0.2, color = "darkseagreen2", size=0.8) +
+  #geom_line(data = subset_APF1_045, aes(x = Age, y = Diatom_minus, group = 1), span = 0.4,level=0.2, color = "seagreen1", size=0.8) +
+  #geom_line(data = Both_WAP_high_outgassing, aes(x = Year, y = quantile_25, group = 1), span = 0.4,level=0.2, color = "brown", size=1) +
+  #geom_point(data = Both_WAP_high_outgassing, aes(x = Year, y = median_value, group = 1), span = 0.4,level=0.2, color = "lightgrey", size=3) +
+  #geom_line(data = Both_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_75, group = 1), color = "lightgrey") +
+  #geom_point(data = Both_Ross_Sea_high_outgassing, aes(x = Year, y = median_value, group = 1),size=3, span = 0.4,level=0.2, color = "darkseagreen4")+
+  scale_x_continuous(breaks = round(seq(min(11000), max(18000), by = 500), 1),
+                     labels = seq(11, 18, by = 0.5))+
+  scale_y_continuous(name = "Atmospheric CO2 concentration [ppm]", sec.axis = sec_axis(~./20, name = "SSIE [1*10^12 km^2]")) +
+  labs(x = "Age [k yrs]", y = "Atmospheric CO2 concentration [ppm]") +
+  #ylim(190,300)+
+  #xlim(11000,18000)+
+  theme(panel.background = element_blank()) +
+  theme(axis.line.y = element_line(color = "grey50", linewidth = 0.5),axis.line.x = element_line(color = "grey50", linewidth = 0.5))
+
+
+PLUS05 <- ggplot() +
+  geom_line(data = co2_data, aes(x = WDC.age, y = WDC.CO2, group = 1), color = "darkred",alpha=0.8) +
+  geom_abline(slope = coef(linear_model)[2], intercept = coef(linear_model)[1], color = "gray", alpha=0.8, size=1) +
+  geom_line(data = subset_RossSea1_05, aes(x = Age, y = SSIE*20, group = 1), color = "lightgrey") +
+  #geom_line(data = EISKERN_CO2daten, aes(x = Gas.Age..yrs.BP., y = CO2..ppm., group = 1), color = "black") +
+  #geom_line(data = Phaeocystis_Ross_Sea_high_outgassing, aes(x = Year, y = median_value, group = 1),span = 0.4, size=1, color = "seagreen4") +
+  #geom_line(data = Phaeocystis_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_25, group = 1),span=0.4, level=0.2, color = "darkseagreen", size=1) +
+  #geom_line(data = Phaeocystis_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_75, group = 1), color = "lightgreen") +
+  #geom_line(data = Diatom_Ross_Sea_high_outgassing, aes(x = Year, y = median_value, group = 1),span = 0.4, size=1, color = "cyan4") +
+  #geom_line(data = Diatom_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_25, group = 1), color = "darkblue") +
+  #geom_line(data = Diatom_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_75, group = 1), color = "lightblue") +
+  geom_line(data = subset_RossSea1_05, aes(x = Age, y =Phaeocystis_plus , group = 1), span = 0.4,level=0.2, color = "darkorange", size=0.8) +
+  geom_line(data = subset_RossSea1_05, aes(x = Age, y = Diatom_plus, group = 1), span = 0.4,level=0.2, color = "darkslategray4", size=0.8) +
+  geom_line(data = subset_APF1_05, aes(x = Age, y =Beide_plus, group = 1), span = 0.4,level=0.2, color = "darkseagreen2", size=0.8) +
+  #geom_line(data = subset_APF1_045, aes(x = Age, y = Diatom_minus, group = 1), span = 0.4,level=0.2, color = "seagreen1", size=0.8) +
+  #geom_line(data = Both_WAP_high_outgassing, aes(x = Year, y = quantile_25, group = 1), span = 0.4,level=0.2, color = "brown", size=1) +
+  #geom_point(data = Both_WAP_high_outgassing, aes(x = Year, y = median_value, group = 1), span = 0.4,level=0.2, color = "lightgrey", size=3) +
+  #geom_line(data = Both_Ross_Sea_high_outgassing, aes(x = Year, y = quantile_75, group = 1), color = "lightgrey") +
+  #geom_point(data = Both_Ross_Sea_high_outgassing, aes(x = Year, y = median_value, group = 1),size=3, span = 0.4,level=0.2, color = "darkseagreen4")+
+  scale_x_continuous(breaks = round(seq(min(11000), max(18000), by = 500), 1),
+                     labels = seq(11, 18, by = 0.5))+
+  scale_y_continuous(name = "Atmospheric CO2 concentration [ppm]", sec.axis = sec_axis(~./20, name = "SSIE [1*10^12 km^2]")) +
+  labs(x = "Age [k yrs]", y = "Atmospheric CO2 concentration [ppm]") +
+  #ylim(190,300)+
+  #xlim(11000,18000)+
+  theme(panel.background = element_blank()) +
+  theme(axis.line.y = element_line(color = "grey50", linewidth = 0.5),axis.line.x = element_line(color = "grey50", linewidth = 0.5))
+
+######### PRE ACR #####################################################
+
+# Subset environment
+
+merged_table_combined1 <- merged_table_combined %>% filter(Age>14610)
+
+subset_RossSea2 <- merged_table_combined1 %>% filter(Environment == "RossSea")
+subset_APF2 <- merged_table_combined1 %>% filter(Environment == "APF")
+
+
+
+# ROSSSEA Cumulative calculation of NPP  
+merged_table_combined %>% arrange(Age)
+
+subset_RossSea3 <- subset_RossSea2 %>% group_by(FCO2) %>% arrange(desc(Age)) %>% mutate(Diatom=cumsum(Final_ppm_Diatomeen_yrs), 
+                                                                                        Phaeocystis=cumsum(Final_ppm_Phaeocystis_yrs), 
+                                                                                        Beide=cumsum(Final_ppm_Beide_yrs)) %>% ungroup()
+
+subset_RossSea3 %>% arrange(FCO2, Age) %>% filter(Age==12830.2) %>% View()
+
+# APF Cumulative calculation of NPP 
+
+subset_APF3 <- subset_APF2 %>% group_by(FCO2) %>% arrange(desc(Age)) %>% mutate(Diatom=cumsum(Final_ppm_Diatomeen_yrs), 
+                                                                                Phaeocystis=cumsum(Final_ppm_Phaeocystis_yrs), 
+                                                                                Beide=cumsum(Final_ppm_Beide_yrs)) %>% ungroup()
+
+subset_APF3 %>% arrange(FCO2, Age) %>% filter(Age==12830.2) %>% View()
+
+# Subtract the calculated ppm Value from the Predicted CO2 
+
+#RossSea
+subset_RossSea3$Diatom_minus <- subset_RossSea3$CO2_pred - subset_RossSea3$Diatom
+subset_RossSea3$Phaeocystis_minus <- subset_RossSea3$CO2_pred - subset_RossSea3$Phaeocystis
+subset_RossSea3$Beide_minus <- subset_RossSea3$CO2_pred - subset_RossSea3$Beide
+
+#APF
+subset_APF3$Diatom_minus <- subset_APF3$CO2_pred - subset_APF3$Diatom
+subset_APF3$Phaeocystis_minus <- subset_APF3$CO2_pred - subset_APF3$Phaeocystis
+subset_APF3$Beide_minus <- subset_APF3$CO2_pred - subset_APF3$Beide
+
+# Add the calculated ppm Value to the real CO2 
+#RossSea
+subset_RossSea3$Diatom_plus <- subset_RossSea3$CO2_real + subset_RossSea3$Diatom
+subset_RossSea3$Phaeocystis_plus <- subset_RossSea3$CO2_real + subset_RossSea3$Phaeocystis
+subset_RossSea3$Beide_plus <- subset_RossSea3$CO2_real + subset_RossSea3$Beide
+
+#APF
+subset_APF3$Diatom_plus <- subset_APF3$CO2_real + subset_APF3$Diatom
+subset_APF3$Phaeocystis_plus <- subset_APF3$CO2_real + subset_APF3$Phaeocystis
+subset_APF3$Beide_plus <- subset_APF3$CO2_real + subset_APF3$Beide
+
+# Final Calculation and Plotting
+
+subset_RossSea3_05 <- subset_RossSea3 %>%
+  filter(FCO2==0.5)
+
+subset_APF3_05 <- subset_APF3 %>%
+  filter(FCO2==0.5)
+
+
+MINUS05_PPA <- ggplot() +
+  geom_line(data = co2_data, aes(x = WDC.age, y = WDC.CO2, group = 1), color = "gray", alpha = 0.8) +
+  geom_abline(slope = coef(linear_model)[2], intercept = coef(linear_model)[1], color = "darkred", alpha = 0.8, size = 1) +
+  geom_line(data = subset_RossSea3_05, aes(x = Age, y = SSIE * 20, group = 1), color = "lightgrey") +
+  geom_line(data = subset_RossSea3_05, aes(x = Age, y = Phaeocystis_minus, group = 1), span = 0.4, level = 0.2, color = "darkorange", size = 0.8) +
+  geom_line(data = subset_RossSea3_05, aes(x = Age, y = Diatom_minus, group = 1), span = 0.4, level = 0.2, color = "darkslategray4", size = 0.8) +
+  geom_line(data = subset_APF3_05, aes(x = Age, y = Beide_minus, group = 1), span = 0.4, level = 0.2, color = "darkseagreen2", size = 0.8) +
+  scale_x_continuous(breaks = round(seq(min(11000), max(18000), by = 500), 1),
+                     labels = seq(11, 18, by = 0.5)) +
+  scale_y_continuous(name = "Atmospheric CO2 concentration [ppm]",
+                     limits = c(190, 300),  # Grenzen für die erste y-Achse
+                     sec.axis = sec_axis(~ . / 20, name = "SSIE [1*10^12 km^2]", 
+                                         breaks = round(seq(12, 18, by = 2), 1))) +  # Zweite y-Achse
+  labs(x = "Age [k yrs]", y = "Atmospheric CO2 concentration [ppm]") +
+  theme(panel.background = element_blank(),
+        axis.line.y = element_line(color = "grey50", linewidth = 0.5),
+        axis.line.x = element_line(color = "grey50", linewidth = 0.5))
+
+
+PLUS05_PPA <- ggplot() +
+  geom_line(data = co2_data, aes(x = WDC.age, y = WDC.CO2, group = 1), color = "darkred", alpha = 0.8) +
+  geom_abline(slope = coef(linear_model)[2], intercept = coef(linear_model)[1], color = "gray", alpha = 0.8, size = 1) +
+  geom_line(data = subset_RossSea3_05, aes(x = Age, y = SSIE * 20, group = 1), color = "lightgrey") +
+  geom_line(data = subset_RossSea3_05, aes(x = Age, y = Phaeocystis_plus, group = 1), span = 0.4, level = 0.2, color = "darkorange", size = 0.8) +
+  geom_line(data = subset_RossSea3_05, aes(x = Age, y = Diatom_plus, group = 1), span = 0.4, level = 0.2, color = "darkslategray4", size = 0.8) +
+  geom_line(data = subset_APF3_05, aes(x = Age, y = Beide_plus, group = 1), span = 0.4, level = 0.2, color = "darkseagreen2", size = 0.8) +
+  scale_x_continuous(breaks = round(seq(min(11000), max(18000), by = 500), 1),
+                     labels = seq(11, 18, by = 0.5)) +
+  scale_y_continuous(name = "Atmospheric CO2 concentration [ppm]",
+                     limits = c(190, 300),  # Grenzen für die erste y-Achse
+                     sec.axis = sec_axis(~ . / 20, name = "SSIE [1*10^12 km^2]", 
+                                         breaks = round(seq(12, 18, by = 2), 1))) +  # Zweite y-Achse
+  labs(x = "Age [k yrs]", y = "Atmospheric CO2 concentration [ppm]") +
+  theme(panel.background = element_blank(),
+        axis.line.y = element_line(color = "grey50", linewidth = 0.5),
+        axis.line.x = element_line(color = "grey50", linewidth = 0.5))
+
+plot_grid(MINUS05_PPA,
+          PLUS05_PPA,
+          nrow=2)
+
+plot_grid(MINUS05,
+          PLUS05,
+          MINUS05_PPA,
+          PLUS05_PPA,
+          nrow=2, ncol=2)
+
+######### Significance testing ############################################################
+# Assumption: Your data contains columns for observed CO2 values (CO2_real),
+# as well as predicted CO2 values based on two different algae (Diatom_plus, Phaeocystis_minus)
+
+# Calculate the deviations between observed and predicted CO2 values for each algae prediction
+deviation_Diatom <- abs(subset_RossSea1_05$CO2_real - subset_RossSea1_05$Diatom_plus)
+deviation_Model <- abs(subset_RossSea1_05$CO2_real - subset_RossSea1_05$CO2_pred)
+
+# Perform a paired t-test
+t_test_result_Diatom <- t.test(deviation_Diatom, deviation_Model, paired = TRUE)
+
+# Print the results of the t-test
+print(t_test_result_Diatom)
+
+# Calculate the deviations between observed and predicted CO2 values for each algae prediction
+deviation_Phaeocystis <- abs(subset_RossSea1_05$CO2_pred - subset_RossSea1_05$Phaeocystis_minus)
+deviation_MODEL <- abs(subset_RossSea1_05$CO2_pred - subset_RossSea1_05$CO2_real)
+
+# Perform a paired t-test
+t_test_result_Phaeo <- t.test(deviation_Phaeocystis, deviation_MODEL, paired = TRUE)
+
+# Print the results of the t-test
+print(t_test_result_Phaeo)
+
+# Filter for specific climate condition in subset_APF1_05
+subset_APF1_05_test <- subset_APF1_05 %>% filter(Climate_condition=="ACR")
+
+# Calculate deviations for APF
+deviation_APF <- abs(subset_APF1_05_test$CO2_pred - subset_APF1_05_test$Beide_minus)
+deviation_MODEL <- abs(subset_APF1_05_test$CO2_pred - subset_APF1_05_test$CO2_real)
+
+# Perform a paired t-test for APF
+t_test_result_APF<- t.test(deviation_APF, deviation_MODEL, paired = TRUE)
+
+# Print the results of the t-test for APF
+print(t_test_result_APF)
