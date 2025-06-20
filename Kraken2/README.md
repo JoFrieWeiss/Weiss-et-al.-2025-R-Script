@@ -3,8 +3,16 @@
 This repository contains a SLURM batch script (`step1.sh`) to run the first preprocessing step of a shotgun metagenomic sequencing pipeline for multiple samples using SLURM array jobs. It includes quality control, optional deduplication, filtering, merging, and final QC.
 
 ---
+## Author & Contact
 
-## 🧪 What This Script Does
+- **Lars Harms** – Author of the original script  
+ [lars.harms@awi.de](mailto:lars.harms@awi.de)
+
+- **Josefine Friederike Weiss** – Adapted and applied for Antarctic metagenomics  
+  [Josefine-Friederike.Weiss@awi.de](mailto:Josefine-Friederike.Weiss@awi.de)
+
+---
+## What This Script Does
 
 For each pair of R1/R2 `.fastq.gz` files, the script performs:
 
@@ -15,7 +23,7 @@ For each pair of R1/R2 `.fastq.gz` files, the script performs:
 
 ---
 
-## 🚀 How to Use
+## How to Use
 
 ### 1. Adjust Parameters
 
@@ -41,7 +49,7 @@ sbatch step1.sh
 
 ---
 
-## ⚙️ SLURM Configuration
+## SLURM Configuration
 
 These SLURM settings are defined at the top of the script:
 
@@ -61,7 +69,7 @@ These SLURM settings are defined at the top of the script:
 
 ---
 
-## 📂 Output Structure
+## Output Structure
 
 Results are stored in the `output_1` folder:
 
@@ -76,7 +84,7 @@ output_1/
 
 ---
 
-## 🔧 Tools Used
+## Tools Used
 
 The following tools are used and loaded as modules (as on AWI's HPC cluster):
 
@@ -90,7 +98,7 @@ All modules must be available via your environment's `module load` system.
 
 ---
 
-## 📜 Script Example
+## Script Example
 
 You can find the full batch script in `step1.sh`. Here's a minimal snippet of the logic:
 
@@ -106,23 +114,13 @@ Full logic for deduplication and fastp trimming/merging is handled conditionally
 
 ---
 
-## 🧑‍💻 Author & Contact
-
-- **Lars Harms** – Author of the original script  
-  📧 [lars.harms@awi.de](mailto:lars.harms@awi.de)
-
-- **Josefine Friederike Weiss** – Adapted and applied for Antarctic metagenomics  
-  📧 [Josefine-Friederike.Weiss@awi.de](mailto:Josefine-Friederike.Weiss@awi.de)
-
----
-
-## 📄 License
+## License
 
 This script is provided as-is, without warranty. You may freely use, adapt, and share it for research purposes. Please acknowledge appropriately in publications or derivative scripts.
 
 ---
 
-## ✅ Example Submit Command
+## Example Submit Command
 
 ```bash
 sbatch step1.sh
