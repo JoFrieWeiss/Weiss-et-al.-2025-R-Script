@@ -28,17 +28,10 @@ The workflow performs the following key steps:
 - tidyverse (for data manipulation and plotting)
 - readxl (for reading Excel files)
 
-## File Descriptions
-
-- `WDC_CO2_1_ka.xlsx` — Ice core CO₂ data source.
-- `S3_5yr_totalC_model.xlsx` — Total carbon model output data.
-- `S3_5yr_NPP_Calc_final.xlsx` — Net Primary Production values for phytoplankton groups.
-- `tray_CO2_linreg_5yr.xlsx` — CO₂ predictions from linear regression.
-
 ## Usage
 
 1. Load the required R packages.
-2. Import the provided .RData .
+2. Import the provided .RData.
 3. Run the script to:
    - Fit the CO₂ linear regression model.
    - Calculate NPP progression ratios.
