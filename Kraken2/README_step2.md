@@ -1,6 +1,6 @@
 # Shotgun Pipeline Step 2 – Taxonomic Classification with Kraken2 and Krona
 
-This SLURM batch script (`step2.sh`) executes the second step of a shotgun metagenomic analysis pipeline. It performs taxonomic classification on multiple samples using [Kraken2](https://ccb.jhu.edu/software/kraken2/) and generates interactive Krona plots for visualization.
+This SLURM batch script (`2_step_shop_nt08_WeddelseaPS97.sl`) executes the second step of a shotgun metagenomic analysis pipeline. It performs taxonomic classification on multiple samples using [Kraken2](https://ccb.jhu.edu/software/kraken2/) and generates interactive Krona plots for visualization.
 
 ## Author
 **Lars Harms**  
