@@ -1,6 +1,6 @@
 # Shotgun Pipeline Step 1 – SLURM Batch Script
 
-This repository contains a SLURM batch script (`step1.sh`) to run the first preprocessing step of a shotgun metagenomic sequencing pipeline for multiple samples using SLURM array jobs. It includes quality control, optional deduplication, filtering, merging, and final QC.
+This repository contains a SLURM batch script (`1_step_shop_with_clumpify_WeddelseaPS97.sl`) to run the first preprocessing step of a shotgun metagenomic sequencing pipeline for multiple samples using SLURM array jobs. It includes quality control, optional deduplication, filtering, merging, and final QC.
 
 ---
 ## Author & Contact
