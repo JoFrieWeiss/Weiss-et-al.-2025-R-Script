@@ -5,6 +5,8 @@ This repository contains the data and scripts related to the study:
 **"Carbon drawdown by algal blooms during Antarctic Cold Reversal from sedimentary aDNA"**  
 published in *Nature Geoscience*.
 
+[![DOI](https://zenodo.org/badge/659732467.svg)](https://doi.org/10.5281/zenodo.15705957)
+
 ## Authors and Affiliations
 
 - Josefine Friederike Weiß+1  
