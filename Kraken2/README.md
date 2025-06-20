@@ -38,6 +38,13 @@ This repository contains two SLURM batch scripts for processing shotgun metageno
 - Kraken2 classification output and reports (`out.kraken2`)
 - Krona plots (`out.krona`)
 
+- ## Merging Kraken2 Reports into a TXT File
+
+To combine all Kraken2 report files with a confidence threshold of 0.8 into a single tab-delimited file, run the following command:
+
+```bash
+awk 'BEGIN{FS=OFS="\t"} {print FILENAME, $0}' *0.8*report | awk 'BEGIN{FS=OFS="\t"} {gsub(/^[ \t]+/, "", $7)}1' > AntarcticaPS97_nt35_0.8.txt
+
 **Execution:**
 - Runs sequentially on a single `fat` node
 
@@ -56,4 +63,5 @@ Both scripts require the following modules to be available on the cluster:
 The Kraken2 database path in `step2.sh` may need to be adapted:
 ```bash
 DB="/home/ollie/projects/bio/db/kraken2/nt_2021_04_db"
+
 
